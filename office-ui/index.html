@@ -29,6 +29,7 @@
   --st-idle:#6F6B62;    /* break */
   --st-meet:#D8CFBB;    /* meeting: bone */
   --st-pause:#4A4740;
+  --st-free:#A39C8C;    /* no role yet: muted bone, dashed ring */
   --f-display:'Unbounded','Manrope',system-ui,sans-serif;
   --f-serif:'Cormorant Garamond','Times New Roman',Georgia,serif;
   --f-ui:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
@@ -167,6 +168,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .kv .mono{font-size:13px}
 .spark{width:100%;height:46px;display:block}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
+.question{margin:0;padding:10px 12px;border:1px solid rgba(224,138,79,.45);background:rgba(224,138,79,.08);border-radius:2px;color:var(--fg);font-size:12.5px}
+.question::before{content:"Вопрос агента";display:block;font-family:var(--f-display);font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--st-wait);margin-bottom:4px}
 .btn{border:1px solid var(--line);background:var(--raise);border-radius:2px;padding:7px 12px;font-size:12px;font-weight:600}
 .btn:hover:not(:disabled){border-color:var(--gold)}
 .btn:disabled{opacity:.35;cursor:not-allowed}
@@ -228,7 +231,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 
   <aside class="roster pane" aria-label="Агенты">
     <div class="summary">
-      <div class="stat"><span class="eyebrow">агентов</span><span class="v" id="s-total">8</span></div>
+      <div class="stat"><span class="eyebrow">агентов</span><span class="v" id="s-total">4</span></div>
       <div class="stat"><span class="eyebrow">в работе</span><span class="v gold" id="s-work">0</span></div>
       <div class="stat"><span class="eyebrow">ждут вас</span><span class="v amber" id="s-wait">0</span></div>
       <div class="stat"><span class="eyebrow">токены</span><span class="v" id="s-tok">0</span></div>
@@ -237,7 +240,7 @@ button{font:inherit;color:inherit;cursor:pointer}
       <button type="button" data-f="all" aria-pressed="true">все</button>
       <button type="button" data-f="work" aria-pressed="false">работают</button>
       <button type="button" data-f="wait" aria-pressed="false">ждут</button>
-      <button type="button" data-f="idle" aria-pressed="false">перерыв</button>
+      <button type="button" data-f="free" aria-pressed="false">без задачи</button>
     </div>
     <div class="list" id="list"></div>
   </aside>
@@ -278,6 +281,7 @@ button{font:inherit;color:inherit;cursor:pointer}
         <span class="eyebrow">токены в минуту</span>
         <svg class="spark" id="d-spark" viewBox="0 0 300 46" preserveAspectRatio="none" aria-hidden="true"></svg>
       </div>
+      <p class="question" id="d-question" hidden></p>
       <div class="actions">
         <button type="button" class="btn gold" id="a-approve">Подтвердить</button>
         <button type="button" class="btn" id="a-pause" aria-pressed="false">Пауза</button>
@@ -304,6 +308,7 @@ const ST = {
   idle:  {label:'Перерыв',     c:V('--st-idle')},
   meet:  {label:'На встрече',  c:V('--st-meet')},
   pause: {label:'На паузе',    c:V('--st-pause')},
+  free:  {label:'Без задачи',  c:V('--st-free')},
 };
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -318,31 +323,17 @@ const fmtK = n => n>=1e6 ? (n/1e6).toFixed(2)+'M' : n>=1e3 ? (n/1e3).toFixed(1)+
 const W = 18, H = 12, CORR = 8.5;
 const P = (x,y,z=0) => [(x-y)*32, (x+y)*16 - z];
 
+const UNASSIGNED = [['Роль не назначена','инструкции пока не заданы','']];
 const agents = [
-  {id:'orch', name:'Оркестратор', code:'OR', role:'Делит эпики на задачи и раздаёт их команде', model:'codex · high',
-   tasks:[['Декомпозиция эпика «Офис v1»','plan/epic-office.md','Разрешить запуск 4 параллельных веток?'],
-          ['Сверка статусов за день','plan/standup.md','Перенести дедлайн ревью на завтра?']]},
-  {id:'arch', name:'Архитектор', code:'AR', role:'Схема данных, API и границы модулей', model:'codex · high',
-   tasks:[['Схема API v2 для агентов','docs/api-schema.md','Утвердить разделение на 3 сервиса?'],
-          ['Модель событий офиса','src/core/events.ts','Переименовать поле status в state?']]},
-  {id:'front', name:'Фронтенд', code:'FE', role:'Интерфейс офиса, карточки и анимации', model:'codex · medium',
-   tasks:[['Вёрстка карточки агента','src/ui/AgentCard.tsx','Подключить новую библиотеку анимаций?'],
-          ['Изометрический рендер этажа','src/ui/Floor.tsx','Заменить canvas на WebGL?']]},
-  {id:'back', name:'Бэкенд', code:'BE', role:'Сервер, очереди задач и логи агентов', model:'codex · medium',
-   tasks:[['Эндпоинт логов агента','server/routes/logs.ts','Запустить миграцию базы данных?'],
-          ['Очередь задач на Redis','server/queue.ts','Удалить старую таблицу jobs?']]},
-  {id:'qa', name:'Тестировщик', code:'QA', role:'E2E и юнит-тесты, регрессии', model:'codex · low',
-   tasks:[['Прогон e2e: офис и досье','tests/e2e/office.spec.ts','Обновить 6 устаревших снапшотов?'],
-          ['Тесты очереди задач','tests/queue.test.ts','Пропустить нестабильный тест сети?']]},
-  {id:'rev', name:'Ревьюер', code:'RV', role:'Читает каждый PR до слияния', model:'codex · high',
-   tasks:[['Ревью PR #18: рефакторинг стора','src/store/*','Одобрить PR с двумя замечаниями?'],
-          ['Ревью PR #21: логи','server/routes/logs.ts','Запросить изменения у Бэкенда?']]},
-  {id:'ops', name:'ДевОпс', code:'OP', role:'CI, превью-стенды и деплой', model:'codex · medium',
-   tasks:[['Деплой превью-стенда','infra/deploy.yml','Выкатить превью в общий доступ?'],
-          ['Кэш сборки в CI','.github/workflows/ci.yml','Сбросить кэш зависимостей?']]},
-  {id:'docs', name:'Документалист', code:'DC', role:'README, гайды и changelog', model:'codex · low',
-   tasks:[['README модуля агентов','docs/agents.md','Опубликовать гайд в вики?'],
-          ['Changelog релиза 0.3','CHANGELOG.md','Отметить релиз как стабильный?']]},
+  {id:'dm', name:'Директ-менеджер', code:'DM', role:'Готовит и отправляет рассылки по базе клиентов', model:'codex · medium',
+   tasks:[['Рассылка «Новинки ноября»','campaigns/2026-11-novinki.md','Отправить рассылку 12 400 подписчикам?'],
+          ['Сегментация базы: неактивные 90 дней','audience/segments.csv','Исключить 1 830 неактивных адресов из рассылки?'],
+          ['Реактивационная цепочка из 3 писем','campaigns/reactivation-chain.md','Запустить цепочку по сегменту «Спящие»?']],
+   events:['подготовил 3 варианта темы письма','проверил ссылки и UTM-метки в письме','собрал превью письма для мобильных',
+           'A/B-тест темы: вариант B даёт +4% открытий','обновил сегмент получателей','вычистил 112 невалидных адресов']},
+  {id:'a2', name:'Агент 02', code:'A2', role:'Роль ещё не назначена', model:'codex · medium', unassigned:true, tasks:UNASSIGNED},
+  {id:'a3', name:'Агент 03', code:'A3', role:'Роль ещё не назначена', model:'codex · medium', unassigned:true, tasks:UNASSIGNED},
+  {id:'a4', name:'Агент 04', code:'A4', role:'Роль ещё не назначена', model:'codex · medium', unassigned:true, tasks:UNASSIGNED},
 ];
 
 /* places: pos, via (waypoints from the place out to the corridor), seated */
@@ -359,15 +350,15 @@ function addDesk(x,y,w,owner){
   return [sx,sy];
 }
 const seats = {};
-seats.orch  = {pos:addDesk(1.3,1.7,1.9,'orch'), via:[[2.4,3.05]], seated:true};
+seats.dm  = {pos:addDesk(1.3,1.7,1.9,'dm'), via:[[2.4,3.05]], seated:true};
 const openX = [6.2,8.9,11.6], aisle = [5.6,8.35,11.05];
-const openIds = [['arch','front','back'],['qa','rev',null]];
+const openIds = [['a2','a3','a4'],[null,null,null]];
 [1.6,4.8].forEach((y,r)=> openX.forEach((x,c)=>{
   const id = openIds[r][c]; const p = addDesk(x,y,1.6,id);
   if(id) seats[id] = {pos:p, via:[[aisle[c],p[1]]], seated:true};
 }));
-seats.ops  = {pos:addDesk(14.8,4.3,1.6,'ops'), via:[], seated:true};
-seats.docs = {pos:addDesk(14.4,9.8,1.6,'docs'), via:[[13.6,11.15]], seated:true};
+addDesk(14.8,4.3,1.6,null);
+addDesk(14.4,9.8,1.6,null);
 
 const lounge = [[9.5,10.25],[10.45,10.45],[11.35,10.2],[8.4,9.7],[9.9,11.2]]
   .map(p=>({pos:p, via:[], seated:false, busy:null}));
@@ -405,9 +396,9 @@ agents.forEach((a,i)=>{
   a.x = a.place.pos[0]; a.y = a.place.pos[1];
 });
 const byId = id => agents.find(a=>a.id===id);
-byId('arch').status='think';
-byId('back').status='wait';
-{ const r = byId('rev'); const spot = lounge[0]; spot.busy='rev'; r.place=spot; r.x=spot.pos[0]; r.y=spot.pos[1]; r.seated=false; r.status='idle'; r.timer=3; r.spark=r.spark.map(()=>rnd(0,80)); }
+agents.filter(a=>a.unassigned).forEach(a=>{ a.status='free'; a.progress=0; a.tin=rnd(2e3,9e3); a.tout=rnd(100,600); a.spark=a.spark.map(()=>0); });
+byId('dm').progress=64;
+{ const r = byId('a4'); const spot = lounge[0]; spot.busy='a4'; r.place=spot; r.x=spot.pos[0]; r.y=spot.pos[1]; r.seated=false; r.status='idle'; r.timer=3; }
 
 const task = a => a.tasks[a.taskIdx % a.tasks.length];
 
@@ -446,8 +437,9 @@ function log(a, msg){
 }
 function setStatus(a,s){ a.status=s; }
 function goWork(a, msg){
-  if(a.place===seats[a.id]){ setStatus(a,'work'); msg && log(a,msg); return; }
-  routeTo(a, seats[a.id], ()=>{ setStatus(a,'work'); msg && log(a,msg); });
+  const s = a.unassigned ? 'free' : 'work';
+  if(a.place===seats[a.id]){ setStatus(a,s); msg && log(a,msg); return; }
+  routeTo(a, seats[a.id], ()=>{ setStatus(a,s); msg && log(a,msg); });
 }
 let meetTimer = 0;
 function tick(){
@@ -471,11 +463,11 @@ function tick(){
       case 'work':
         rate = rnd(250,950);
         a.progress += rnd(1.5,5.5);
-        if(Math.random()<0.10) log(a, `изменил <span class="mono">${t[1]}</span> (+${Math.floor(rnd(4,80))} строк)`);
+        if(Math.random()<0.12) { let ev; do { ev = a.events ? pick(a.events) : `изменил <span class="mono">${t[1]}</span>`; } while(a.events && ev===a.lastEv); a.lastEv=ev; log(a, ev); }
         if(a.progress>=100){ log(a, `завершил «${t[0]}»`); a.taskIdx++; a.progress=0; a.since=Date.now(); }
         else if(Math.random()<0.07){ setStatus(a,'think'); log(a, `анализирует контекст <span class="mono">${t[1]}</span>`); }
         else if(Math.random()<0.04){ setStatus(a,'wait'); log(a, `просит подтверждения: ${t[2]}`); }
-        else if(Math.random()<0.04 && a.id!=='orch'){
+        else if(Math.random()<0.03){
           const spot = lounge.find(s=>!s.busy);
           if(spot){ setStatus(a,'idle'); a.timer = 3+Math.floor(rnd(0,4)); routeTo(a, spot); log(a,'ушёл на кофе'); }
         }
@@ -486,11 +478,15 @@ function tick(){
         break;
       case 'wait':
         rate = 0;
-        if(Math.random()<0.05){ setStatus(a,'work'); log(byId('orch'), `подтвердил запрос агента ${a.name}`); }
+        break;
+      case 'free':
+        rate = 0;
+        if(Math.random()<0.025){ const spot = lounge.find(s=>!s.busy);
+          if(spot){ setStatus(a,'idle'); a.timer = 3+Math.floor(rnd(0,4)); routeTo(a, spot); } }
         break;
       case 'idle':
         rate = rnd(0,60);
-        if(--a.timer<=0) goWork(a, `вернулся к задаче «${t[0]}»`);
+        if(--a.timer<=0) goWork(a, a.unassigned ? 'вернулся на место, ждёт инструкций' : `вернулся к задаче «${t[0]}»`);
         break;
       case 'meet':
         rate = rnd(100,300); break;
@@ -504,7 +500,7 @@ function tick(){
 /* ================= canvas ================= */
 const stage = document.getElementById('stage');
 const cv = document.getElementById('floor'), ctx = cv.getContext('2d');
-let DPR=1, VW=1, VH=1, night=false, selected='front', hover=null, follow=false;
+let DPR=1, VW=1, VH=1, night=false, selected='dm', hover=null, follow=false;
 const cam = {s:1,x:0,y:0,user:false};
 
 function fit(){
@@ -553,7 +549,7 @@ function ellipse(cx,cy,rx,ry,fill,stroke,lw,dash){
 }
 
 function floorColor(x,y){
-  if(x<5 && y<5) return '#1E1B17';            // orchestrator office, dark walnut
+  if(x<5 && y<5) return '#1E1B17';            // manager office, dark walnut
   if(x>=14 && y<8) return '#101113';          // server room, raised floor
   if(y>=8 && y<9) return '#1C1B1D';           // corridor
   if(y>=9 && x<6) return '#141518';           // meeting room
@@ -702,7 +698,7 @@ function drawAgent(a,t){
   ellipse(0,0,11,5.5,'rgba(0,0,0,.5)');
   const speed = a.status==='wait'?5:2.2;
   const pulse = reduced ? .6 : (Math.sin(t*speed+a.ph)+1)/2;
-  ellipse(0,0,14,7,null,rgba(st.c,.35+.5*pulse),1.4, a.status==='pause'?[3,3]:null);
+  ellipse(0,0,14,7,null,rgba(st.c,.35+.5*pulse),1.4, (a.status==='pause'||a.status==='free')?[3,3]:null);
   if(sel) ellipse(0,0,19,9.5,null,rgba(GOLD_HI,.9),1.2);
   else if(hov) ellipse(0,0,19,9.5,null,rgba(GOLD,.45),1);
   const base = a.seated ? 9 : 0;
@@ -853,7 +849,7 @@ let filter='all';
 document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{
   filter=b.dataset.f; document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',String(x===b))); renderUI();
 });
-document.getElementById('legend').innerHTML = ['work','think','wait','idle','meet']
+document.getElementById('legend').innerHTML = ['work','think','wait','free','idle']
   .map(k=>`<span><span class="dot" style="background:${ST[k].c}"></span>${ST[k].label.toLowerCase()}</span>`).join('');
 
 function select(id){ selected=id; renderUI(); }
@@ -890,7 +886,7 @@ function renderUI(){
     r.querySelector('.bar i').style.width = Math.min(100,a.progress).toFixed(0)+'%';
     r.querySelector('.dot').style.background = st.c;
     r.querySelector('.sl').textContent = st.label.toLowerCase();
-    const grp = a.status==='think'?'work': a.status==='meet'?'work': a.status==='pause'?'idle': a.status;
+    const grp = ['work','think','meet'].includes(a.status) ? 'work' : a.status==='wait' ? 'wait' : 'free';
     r.hidden = !(filter==='all' || grp===filter);
   }
   $('s-work').textContent=work; $('s-wait').textContent=wait;
@@ -899,14 +895,16 @@ function renderUI(){
   $('d-name').textContent=a.name; $('d-role').textContent=a.role;
   const pill=$('d-pill'); pill.querySelector('.dot').style.background=st.c; pill.lastElementChild.textContent=st.label; pill.style.borderColor=rgba(st.c,.5);
   $('d-task').textContent=t[0]; $('d-file').textContent=t[1];
-  $('d-bar').style.width=Math.min(100,a.progress).toFixed(0)+'%'; $('d-pct').textContent=Math.min(100,a.progress).toFixed(0)+'%';
+  $('d-bar').style.width=Math.min(100,a.progress).toFixed(0)+'%'; $('d-pct').textContent=a.unassigned?'—':Math.min(100,a.progress).toFixed(0)+'%';
+  $('d-file').style.color = a.unassigned ? 'var(--dim)' : '';
   $('d-in').textContent=fmtK(a.tin); $('d-out').textContent=fmtK(a.tout); $('d-model').textContent=a.model;
   const mins=Math.floor((Date.now()-a.since)/60e3); $('d-up').textContent=`${Math.floor(mins/60)}ч ${String(mins%60).padStart(2,'0')}м`;
   $('d-spark').innerHTML=spark(a.spark);
   const ap=$('a-approve'); ap.disabled = a.status!=='wait'; ap.title = a.status==='wait' ? t[2] : 'Агент ничего не спрашивает';
+  $('d-question').hidden = a.status!=='wait'; $('d-question').textContent = a.status==='wait' ? t[2] : '';
   const pb=$('a-pause'); pb.textContent = a.paused?'Продолжить':'Пауза'; pb.setAttribute('aria-pressed',String(a.paused));
   $('rail').innerHTML = `<span><b>${agents.length}</b> агентов</span><span class="g">${work} в работе</span>
-    <span>${wait} ждут ответа</span><span>${agents.filter(x=>x.status==='idle').length} на перерыве</span>
+    <span>${wait} ждут ответа</span><span>${agents.filter(x=>x.unassigned).length} без роли</span>
     <span class="sp"></span><span>вход <b>${fmtK(tin)}</b> · выход <b>${fmtK(tout)}</b></span><span>смена <b>${uptime()}</b></span>`;
 }
 const shiftStart = now0 - (3*3600+1250)*1000;
@@ -914,11 +912,12 @@ function uptime(){ const s=Math.floor((Date.now()-shiftStart)/1000); return `${M
 function clock(){ $('clock').textContent=new Date().toTimeString().slice(0,8); }
 
 /* seed the log */
-log(byId('orch'),'открыл смену, в офисе 8 агентов');
-log(byId('front'),'изменил <span class="mono">src/ui/AgentCard.tsx</span> (+42 строки)');
-log(byId('rev'),'ушёл на кофе');
-log(byId('arch'),'анализирует контекст <span class="mono">docs/api-schema.md</span>');
-log(byId('back'),'просит подтверждения: Запустить миграцию базы данных?');
+log(null,'Смена открыта, в офисе 4 агента');
+log(byId('a2'),'на месте, ждёт инструкций');
+log(byId('a3'),'на месте, ждёт инструкций');
+log(byId('a4'),'ушёл на кофе');
+log(byId('dm'),'собрал сегмент «Активные за 30 дней»: 12 400 адресов');
+log(byId('dm'),'подготовил 3 варианта темы письма');
 
 resize(); renderUI(); clock();
 setInterval(tick,1600); setInterval(()=>{clock(); if(!document.hidden) renderUI();},1000);
