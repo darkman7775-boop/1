@@ -151,7 +151,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .hud .hint{font-family:var(--f-mono);font-size:10px;color:var(--dim);margin-top:4px;max-width:260px}
 
 /* ---------- dossier ---------- */
-.dossier{grid-area:dossier;display:flex;flex-direction:column;overflow:hidden}
+.dossier{grid-area:dossier;display:flex;flex-direction:column;overflow-y:auto}
 .dos-head{padding:18px 18px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
 .dos-name{font-family:var(--f-serif);font-style:italic;font-weight:600;font-size:38px;line-height:1;color:var(--fg);text-wrap:balance}
 .dos-role{color:var(--muted);font-size:12.5px}
@@ -168,6 +168,28 @@ button{font:inherit;color:inherit;cursor:pointer}
 .kv .mono{font-size:13px}
 .spark{width:100%;height:46px;display:block}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
+.assign{display:flex;flex-direction:column;gap:6px}
+.assign-row{display:flex;gap:8px}
+.dossier input[type=text],.dossier textarea{width:100%;min-width:0;background:var(--ink);border:1px solid var(--line);border-radius:2px;color:var(--fg);font:inherit;font-size:12.5px;padding:8px 10px}
+.dossier textarea{resize:vertical;line-height:1.4}
+.dossier input:focus,.dossier textarea:focus{outline:none;border-color:var(--gold)}
+.dossier input::placeholder,.dossier textarea::placeholder{color:var(--dim)}
+.dossier input:disabled{opacity:.5;cursor:not-allowed}
+.hint-line{margin:0;font-size:11px;color:var(--dim)}
+.queue ol{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;counter-reset:q}
+.queue li{display:flex;gap:8px;align-items:center;font-size:12px;padding:6px 8px;border:1px solid var(--line-soft);border-radius:2px;counter-increment:q}
+.queue li::before{content:counter(q);font-family:var(--f-mono);font-size:10px;color:var(--gold)}
+.queue li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.queue li button{background:none;border:0;color:var(--dim);font-size:15px;line-height:1;padding:2px 4px}
+.queue li button:hover{color:var(--st-wait)}
+.role{border:1px solid var(--line);border-radius:2px}
+.role[open]{border-color:var(--gold-lo)}
+.role summary{list-style:none;display:flex;justify-content:space-between;align-items:center;padding:9px 12px;cursor:pointer}
+.role summary::-webkit-details-marker{display:none}
+.sum-action{font-size:11px;color:var(--gold)}
+.role form{display:flex;flex-direction:column;gap:6px;padding:0 12px 12px}
+.role label{font-size:11px;color:var(--muted);margin-top:4px}
+.role .btn{align-self:flex-start;margin-top:6px}
 .question{margin:0;padding:10px 12px;border:1px solid rgba(224,138,79,.45);background:rgba(224,138,79,.08);border-radius:2px;color:var(--fg);font-size:12.5px}
 .question::before{content:"Вопрос агента";display:block;font-family:var(--f-display);font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--st-wait);margin-bottom:4px}
 .btn{border:1px solid var(--line);background:var(--raise);border-radius:2px;padding:7px 12px;font-size:12px;font-weight:600}
@@ -176,7 +198,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .btn.gold{background:linear-gradient(180deg,var(--gold-hi),var(--gold));border-color:var(--gold);color:#16130c}
 .btn[aria-pressed="true"]{border-color:var(--gold);color:var(--gold-hi)}
 .log-head{display:flex;justify-content:space-between;align-items:center;padding:12px 18px 8px}
-.log{list-style:none;margin:0;padding:0 18px 14px;overflow:auto;flex:1;min-height:0;display:flex;flex-direction:column}
+.log{list-style:none;margin:0;padding:0 18px 14px;display:flex;flex-direction:column}
 .log li{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;padding:7px 0;border-bottom:1px dashed var(--line-soft);font-size:12px}
 .log li .time{font-family:var(--f-mono);font-size:10.5px;color:var(--dim);padding-top:1px}
 .log li b{color:var(--gold-hi);font-weight:600}
@@ -196,7 +218,7 @@ button{font:inherit;color:inherit;cursor:pointer}
     grid-template-areas:"top" "stage" "dossier" "roster" "rail"}
   .stage{height:min(64vh,560px);min-height:360px}
   .list{max-height:420px}
-  .log{max-height:300px}
+  .log{max-height:300px;overflow:auto}
   .hud .hint{display:none}
 }
 @media (max-width:520px){
@@ -287,6 +309,25 @@ button{font:inherit;color:inherit;cursor:pointer}
         <button type="button" class="btn" id="a-pause" aria-pressed="false">Пауза</button>
         <button type="button" class="btn" id="a-follow" aria-pressed="false">Следить камерой</button>
       </div>
+      <form class="assign" id="f-task" autocomplete="off">
+        <label class="eyebrow" for="in-task">новая задача</label>
+        <div class="assign-row">
+          <input id="in-task" type="text" maxlength="140">
+          <button type="submit" class="btn gold" id="b-task">Поручить</button>
+        </div>
+        <p class="hint-line" id="task-hint"></p>
+      </form>
+      <div class="queue" id="queue" hidden><span class="eyebrow">в очереди</span><ol id="queue-list"></ol></div>
+      <details class="role" id="role-box">
+        <summary><span class="eyebrow">роль и инструкции</span><span class="sum-action" id="role-sum">изменить</span></summary>
+        <form id="f-role" autocomplete="off">
+          <label for="in-role-name">Название роли</label>
+          <input id="in-role-name" type="text" maxlength="40" placeholder="Например: Контент-менеджер" required>
+          <label for="in-role-instr">Что делает агент</label>
+          <textarea id="in-role-instr" rows="3" maxlength="400" placeholder="Например: пишет посты для соцсетей по контент-плану и согласует темы со мной"></textarea>
+          <button class="btn gold" type="submit" id="b-role">Назначить роль</button>
+        </form>
+      </details>
     </div>
     <div class="log-head"><span class="eyebrow">журнал офиса</span><span class="mono" style="font-size:10px;color:var(--dim)" id="log-count"></span></div>
     <ul class="log" id="log"></ul>
@@ -311,6 +352,7 @@ const ST = {
   free:  {label:'Без задачи',  c:V('--st-free')},
 };
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $=id=>document.getElementById(id);
 
 const hexRgb = h => { h=h.replace('#',''); return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16)); };
 const shade = (h,f) => { const [r,g,b]=hexRgb(h); return `rgb(${Math.min(255,r*f|0)},${Math.min(255,g*f|0)},${Math.min(255,b*f|0)})`; };
@@ -394,13 +436,22 @@ agents.forEach((a,i)=>{
     timer:0, paused:false, keyOverride:null,
   });
   a.x = a.place.pos[0]; a.y = a.place.pos[1];
+  a.queue=[]; a.demo=!a.unassigned; a.current = a.unassigned ? null : a.tasks[0];
 });
 const byId = id => agents.find(a=>a.id===id);
 agents.filter(a=>a.unassigned).forEach(a=>{ a.status='free'; a.progress=0; a.tin=rnd(2e3,9e3); a.tout=rnd(100,600); a.spark=a.spark.map(()=>0); });
 byId('dm').progress=64;
 { const r = byId('a4'); const spot = lounge[0]; spot.busy='a4'; r.place=spot; r.x=spot.pos[0]; r.y=spot.pos[1]; r.seated=false; r.status='idle'; r.timer=3; }
 
-const task = a => a.tasks[a.taskIdx % a.tasks.length];
+const USER = 'поручено вами';
+const task = a => a.current || (a.unassigned ? UNASSIGNED[0] : ['Ждёт задачу','поставьте задачу в поле ниже','']);
+function nextTask(a){
+  a.progress=0; a.since=Date.now(); a.awaitDone=false;
+  if(a.queue.length){ a.current=a.queue.shift(); setStatus(a,'work'); log(a,`взял задачу «${a.current[0]}»`); }
+  else if(a.tasks && a.tasks.length && !a.unassigned && a.tasks!==UNASSIGNED && a.demo){ a.taskIdx++; a.current=a.tasks[a.taskIdx % a.tasks.length]; setStatus(a,'work'); }
+  else { a.current=null; setStatus(a,'free'); log(a,'свободен, ждёт новую задачу'); }
+  renderQueue();
+}
 
 /* ================= movement ================= */
 function routeTo(a, place, onArrive){
@@ -437,7 +488,7 @@ function log(a, msg){
 }
 function setStatus(a,s){ a.status=s; }
 function goWork(a, msg){
-  const s = a.unassigned ? 'free' : 'work';
+  const s = a.current ? 'work' : 'free';
   if(a.place===seats[a.id]){ setStatus(a,s); msg && log(a,msg); return; }
   routeTo(a, seats[a.id], ()=>{ setStatus(a,s); msg && log(a,msg); });
 }
@@ -463,10 +514,10 @@ function tick(){
       case 'work':
         rate = rnd(250,950);
         a.progress += rnd(1.5,5.5);
-        if(Math.random()<0.12) { let ev; do { ev = a.events ? pick(a.events) : `изменил <span class="mono">${t[1]}</span>`; } while(a.events && ev===a.lastEv); a.lastEv=ev; log(a, ev); }
-        if(a.progress>=100){ log(a, `завершил «${t[0]}»`); a.taskIdx++; a.progress=0; a.since=Date.now(); }
+        if(Math.random()<0.12) { let ev; do { ev = (a.events && t[1]!==USER) ? pick(a.events) : `работает над «${t[0]}»`; } while(a.events && t[1]!==USER && ev===a.lastEv); a.lastEv=ev; log(a, ev); }
+        if(a.progress>=100){ if(t[1]===USER){ a.progress=100; a.awaitDone=true; setStatus(a,'wait'); log(a,`ждёт приёмки: «${t[0]}»`); } else { log(a, `завершил «${t[0]}»`); nextTask(a); } }
         else if(Math.random()<0.07){ setStatus(a,'think'); log(a, `анализирует контекст <span class="mono">${t[1]}</span>`); }
-        else if(Math.random()<0.04){ setStatus(a,'wait'); log(a, `просит подтверждения: ${t[2]}`); }
+        else if(Math.random()<0.04 && t[1]!==USER){ setStatus(a,'wait'); log(a, `просит подтверждения: ${t[2]}`); }
         else if(Math.random()<0.03){
           const spot = lounge.find(s=>!s.busy);
           if(spot){ setStatus(a,'idle'); a.timer = 3+Math.floor(rnd(0,4)); routeTo(a, spot); log(a,'ушёл на кофе'); }
@@ -852,11 +903,52 @@ document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{
 document.getElementById('legend').innerHTML = ['work','think','wait','free','idle']
   .map(k=>`<span><span class="dot" style="background:${ST[k].c}"></span>${ST[k].label.toLowerCase()}</span>`).join('');
 
-function select(id){ selected=id; renderUI(); }
+function select(id){ selected=id; syncForms(); renderQueue(); renderUI(); }
+function syncForms(){
+  const a=byId(selected);
+  $('in-role-name').value = a.unassigned ? '' : a.name;
+  $('in-role-instr').value = a.unassigned || a.role==='Инструкции пока не заполнены' ? '' : a.role;
+  $('role-box').open = !!a.unassigned;
+  $('role-sum').textContent = a.unassigned ? 'назначить' : 'изменить';
+  $('b-role').textContent = a.unassigned ? 'Назначить роль' : 'Сохранить роль';
+  const inp=$('in-task');
+  inp.disabled = !!a.unassigned; $('b-task').disabled = !!a.unassigned;
+  inp.placeholder = a.unassigned ? 'Сначала назначьте агенту роль' : (a.id==='dm' ? 'Например: рассылка к Чёрной пятнице по активным' : 'Опишите задачу одной фразой');
+  $('task-hint').textContent = a.unassigned ? 'У агента пока нет роли. Назначьте её ниже, и поле станет доступно.' : 'Если агент занят, задача встанет в очередь.';
+}
+let queueSig='';
+function renderQueue(){
+  const a=byId(selected), sig=a.id+'|'+a.queue.map(q=>q[0]).join('|');
+  if(sig===queueSig) return; queueSig=sig;
+  $('queue').hidden = !a.queue.length;
+  const ol=$('queue-list'); ol.innerHTML='';
+  a.queue.forEach((q,i)=>{ const li=document.createElement('li'); const sp=document.createElement('span'); sp.textContent=q[0];
+    const b=document.createElement('button'); b.type='button'; b.textContent='×'; b.setAttribute('aria-label','Убрать из очереди: '+q[0]);
+    b.onclick=()=>{ a.queue.splice(i,1); log(a,`задача «${q[0]}» убрана из очереди`); renderQueue(); };
+    li.append(sp,b); ol.appendChild(li); });
+}
+const codeFrom = (nm,fallback) => { const w=nm.split(/[\s\-]+/).filter(Boolean); const c=(w.length>1? w[0][0]+w[1][0] : nm.slice(0,2)).toUpperCase(); return c || fallback; };
+$('f-role').addEventListener('submit',e=>{ e.preventDefault();
+  const a=byId(selected), nm=$('in-role-name').value.trim(); if(!nm) return;
+  const ins=$('in-role-instr').value.trim(), first=a.unassigned;
+  a.unassigned=false; a.name=nm; a.code=codeFrom(nm,a.code); a.role=ins||'Инструкции пока не заполнены';
+  log(a, first ? `получил роль «${nm}»` : 'роль и инструкции обновлены');
+  syncForms(); $('role-box').open=false; renderUI(); if(first) $('in-task').focus();
+});
+$('f-task').addEventListener('submit',e=>{ e.preventDefault();
+  const a=byId(selected); if(a.unassigned) return;
+  const v=$('in-task').value.trim(); if(!v) return;
+  const t=[v, USER, `Результат готов: «${v}». Принять?`];
+  if(!a.current){ a.current=t; a.progress=0; a.since=Date.now(); log(a,`взял задачу «${v}»`); if(!a.paused) goWork(a); }
+  else { a.queue.push(t); log(a,`добавил в очередь «${v}»`); }
+  $('in-task').value=''; renderQueue(); renderUI();
+});
 function setFollow(v){ follow=v; document.getElementById('a-follow').setAttribute('aria-pressed',String(v)); }
 document.getElementById('a-follow').onclick=()=>{ setFollow(!follow); if(follow) cam.user=true; };
 document.getElementById('a-approve').onclick=()=>{ const a=byId(selected); if(a.status!=='wait') return;
-  log(a, `получил подтверждение: ${task(a)[2]}`); setStatus(a,'work'); renderUI(); };
+  if(a.awaitDone){ log(a, `задача «${task(a)[0]}» принята`); nextTask(a); }
+  else { log(a, `получил подтверждение: ${task(a)[2]}`); setStatus(a,'work'); }
+  renderUI(); };
 document.getElementById('a-pause').onclick=()=>{ const a=byId(selected);
   a.paused=!a.paused;
   if(a.paused){ a.prevStatus=a.status; setStatus(a,'pause'); log(a,'поставлен на паузу'); }
@@ -874,7 +966,6 @@ function spark(values){
     <polyline points="${line}" fill="none" stroke="${GOLD_HI}" stroke-width="1.3" vector-effect="non-scaling-stroke"/>
     <circle cx="${lastP[0]}" cy="${lastP[1]}" r="2.6" fill="${GOLD_HI}"/>`;
 }
-const $=id=>document.getElementById(id);
 function renderUI(){
   let work=0,wait=0,tin=0,tout=0;
   for(const a of agents){
@@ -883,6 +974,7 @@ function renderUI(){
     const r=rows[a.id], st=ST[a.status];
     r.setAttribute('aria-current', String(a.id===selected));
     r.querySelector('.tk').textContent = task(a)[0];
+    r.querySelector('.nm').textContent = a.name; r.querySelector('.avatar span').textContent = a.code;
     r.querySelector('.bar i').style.width = Math.min(100,a.progress).toFixed(0)+'%';
     r.querySelector('.dot').style.background = st.c;
     r.querySelector('.sl').textContent = st.label.toLowerCase();
@@ -895,8 +987,8 @@ function renderUI(){
   $('d-name').textContent=a.name; $('d-role').textContent=a.role;
   const pill=$('d-pill'); pill.querySelector('.dot').style.background=st.c; pill.lastElementChild.textContent=st.label; pill.style.borderColor=rgba(st.c,.5);
   $('d-task').textContent=t[0]; $('d-file').textContent=t[1];
-  $('d-bar').style.width=Math.min(100,a.progress).toFixed(0)+'%'; $('d-pct').textContent=a.unassigned?'—':Math.min(100,a.progress).toFixed(0)+'%';
-  $('d-file').style.color = a.unassigned ? 'var(--dim)' : '';
+  $('d-bar').style.width=Math.min(100,a.progress).toFixed(0)+'%'; $('d-pct').textContent=!a.current?'—':Math.min(100,a.progress).toFixed(0)+'%';
+  $('d-file').style.color = !a.current ? 'var(--dim)' : '';
   $('d-in').textContent=fmtK(a.tin); $('d-out').textContent=fmtK(a.tout); $('d-model').textContent=a.model;
   const mins=Math.floor((Date.now()-a.since)/60e3); $('d-up').textContent=`${Math.floor(mins/60)}ч ${String(mins%60).padStart(2,'0')}м`;
   $('d-spark').innerHTML=spark(a.spark);
@@ -919,7 +1011,7 @@ log(byId('a4'),'ушёл на кофе');
 log(byId('dm'),'собрал сегмент «Активные за 30 дней»: 12 400 адресов');
 log(byId('dm'),'подготовил 3 варианта темы письма');
 
-resize(); renderUI(); clock();
+resize(); syncForms(); renderQueue(); renderUI(); clock();
 setInterval(tick,1600); setInterval(()=>{clock(); if(!document.hidden) renderUI();},1000);
 requestAnimationFrame(frame);
 })();
